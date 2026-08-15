@@ -54,6 +54,25 @@
     .clear-btn:hover { background: #fee; }
     .count-badge { background: #f0f0f0; color: #333; font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 4px; }
     .status { font-size: 12px; color: #999; margin-top: 8px; }
+    .instagram-cta {
+      display: none;
+      margin-top: 12px;
+      text-align: center;
+      padding: 12px;
+      background: #f9f9f9;
+      border: 1px solid #e0e0e0;
+      border-radius: 6px;
+    }
+    .instagram-cta.show { display: block; }
+    .instagram-link {
+      display: inline-block;
+      margin-top: 6px;
+      color: #000;
+      font-weight: 600;
+      text-decoration: none;
+      font-size: 13px;
+    }
+    .instagram-link:hover { text-decoration: underline; }
     @media (max-width: 600px) {
       .header h1 { font-size: 20px; }
       .tab-btn { font-size: 12px; padding: 12px; }
@@ -106,6 +125,11 @@
 
           <button type="submit" class="submit-btn">Submit request</button>
           <div class="status" id="submit-status"></div>
+          <div class="instagram-cta" id="instagram-cta">
+            <a class="instagram-link" href="https://www.instagram.com/chief_kivv/" target="_blank" rel="noopener noreferrer">
+              Follow @chief_kivv on Instagram →
+            </a>
+          </div>
         </form>
       </div>
 
@@ -273,7 +297,8 @@
         console.log('Request submitted successfully');
         e.target.reset();
         submitBtn.disabled = false;
-        statusEl.textContent = '✓ Submitted!';
+        statusEl.textContent = '✓ Request submitted!';
+        document.getElementById('instagram-cta').classList.add('show');
         statusEl.style.color = '#28a745';
         setTimeout(() => {
           statusEl.textContent = '';
