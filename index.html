@@ -80,18 +80,18 @@
           <div id="link-form">
             <div class="form-group">
               <label for="youtube">YouTube link</label>
-              <input type="url" id="youtube" placeholder="https://youtube.com/watch?v=..." required>
+              <input type="url" id="youtube" placeholder="https://youtube.com/watch?v=...">
             </div>
           </div>
 
           <div id="manual-form" style="display: none;">
             <div class="form-group">
               <label for="song-title">Song title</label>
-              <input type="text" id="song-title" placeholder="e.g. Levitating" required>
+              <input type="text" id="song-title" placeholder="e.g. Levitating">
             </div>
             <div class="form-group">
               <label for="artist">Artist</label>
-              <input type="text" id="artist" placeholder="e.g. Dua Lipa" required>
+              <input type="text" id="artist" placeholder="e.g. Dua Lipa">
             </div>
           </div>
 
@@ -153,6 +153,25 @@
 
     function handleSubmit(e) {
       e.preventDefault();
+      alert('DEBUG: Form submitted. Form type: ' + formType);
+      
+      // Validate based on form type
+      if (formType === 'link') {
+        const youtube = document.getElementById('youtube').value.trim();
+        alert('DEBUG: YouTube value: ' + youtube);
+        if (!youtube) {
+          alert('Please enter a YouTube link');
+          return;
+        }
+      } else {
+        const title = document.getElementById('song-title').value.trim();
+        const artist = document.getElementById('artist').value.trim();
+        if (!title || !artist) {
+          alert('Please enter both song title and artist');
+          return;
+        }
+      }
+      
       const request = {
         id: Date.now(),
         timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
