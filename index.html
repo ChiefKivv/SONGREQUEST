@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chief Kivv Song Requests</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database-compat.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -35,6 +35,7 @@
     .form-type-btn.active { background: #000; color: white; border-color: #000; }
     .submit-btn { width: 100%; padding: 12px; background: #000; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
     .submit-btn:hover { background: #333; }
+    .submit-btn:disabled { background: #999; cursor: not-allowed; }
     .requests-list { display: flex; flex-direction: column; gap: 12px; }
     .request-card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; }
     .request-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
@@ -150,16 +151,21 @@
       measurementId: "G-D244MH12RG"
     };
 
-    // Wait for Firebase to load
+    // Initialize Firebase
     function initFirebase() {
       if (typeof firebase === 'undefined') {
-        console.log('Firebase not loaded yet, retrying...');
-        setTimeout(initFirebase, 100);
+        console.error('Firebase SDK failed to load.');
+        const statusEl = document.getElementById('submit-status');
+        statusEl.textContent = 'Database unavailable. Please refresh the page.';
+        statusEl.style.color = '#d32f2f';
         return;
       }
 
       try {
-        firebase.initializeApp(firebaseConfig);
+        if (!firebase.apps.length) {
+          firebase.initializeApp(firebaseConfig);
+        }
+
         db = firebase.database();
         requestsRef = db.ref('requests');
         firebaseReady = true;
@@ -169,17 +175,23 @@
 
         requestsRef.on('value', (snapshot) => {
           console.log('Firebase update received:', snapshot.val());
-          updateCount();
-          renderRequests();
+          updateCountFromSnapshot(snapshot);
+          renderRequestsFromSnapshot(snapshot);
         }, (error) => {
           console.error('Firebase read error:', error);
-          alert('Error connecting to database: ' + error.message);
+          firebaseReady = false;
+          const statusEl = document.getElementById('submit-status');
+          statusEl.textContent = 'Database connection error. Check Firebase rules and try again.';
+          statusEl.style.color = '#d32f2f';
         });
 
         updateCount();
       } catch (error) {
         console.error('Firebase initialization error:', error);
-        alert('Firebase initialization failed: ' + error.message);
+        firebaseReady = false;
+        const statusEl = document.getElementById('submit-status');
+        statusEl.textContent = 'Firebase initialization failed: ' + error.message;
+        statusEl.style.color = '#d32f2f';
       }
     }
 
@@ -236,6 +248,9 @@
         }
       }
       
+      const submitBtn = e.target.querySelector('.submit-btn');
+      submitBtn.disabled = true;
+
       const request = {
         id: Date.now(),
         timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
@@ -257,6 +272,7 @@
       requestsRef.child(request.id).set(request).then(() => {
         console.log('Request submitted successfully');
         e.target.reset();
+        submitBtn.disabled = false;
         statusEl.textContent = '✓ Submitted!';
         statusEl.style.color = '#28a745';
         setTimeout(() => {
@@ -264,6 +280,7 @@
         }, 2000);
       }).catch((error) => {
         console.error('Firebase write error:', error);
+        submitBtn.disabled = false;
         alert('Error submitting request: ' + error.message);
         statusEl.textContent = 'Error: ' + error.message;
         statusEl.style.color = '#d32f2f';
@@ -271,39 +288,55 @@
     }
 
     function renderRequests() {
-      const container = document.getElementById('requests-list');
+      if (!requestsRef) return;
 
-      requestsRef.once('value', (snapshot) => {
-        if (!snapshot.exists()) {
-          container.innerHTML = '<div class="empty-state">No requests yet.</div>';
-          return;
-        }
-
-        const requests = [];
-        snapshot.forEach((childSnapshot) => {
-          requests.unshift(childSnapshot.val());
-        });
-
-        container.innerHTML = requests.map(req => `
-          <div class="request-card">
-            <div class="request-header">
-              <div class="request-title">${escapeHtml(req.display)}</div>
-              <div class="request-time">${req.timestamp}</div>
-            </div>
-            <div class="request-details">
-              Requested by <strong>${escapeHtml(req.name)}</strong>
-              ${req.type === 'link' ? `<br><a href="${req.youtube}" target="_blank" class="request-link">${req.youtube.substring(0, 50)}...</a>` : ''}
-            </div>
-          </div>
-        `).join('');
+      requestsRef.once('value').then((snapshot) => {
+        renderRequestsFromSnapshot(snapshot);
+      }).catch((error) => {
+        console.error('Firebase render error:', error);
       });
     }
 
-    function updateCount() {
-      requestsRef.once('value', (snapshot) => {
-        const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
-        document.getElementById('count').textContent = count;
+    function renderRequestsFromSnapshot(snapshot) {
+      const container = document.getElementById('requests-list');
+
+      if (!snapshot.exists()) {
+        container.innerHTML = '<div class="empty-state">No requests yet.</div>';
+        return;
+      }
+
+      const requests = [];
+      snapshot.forEach((childSnapshot) => {
+        requests.unshift(childSnapshot.val());
       });
+
+      container.innerHTML = requests.map(req => `
+        <div class="request-card">
+          <div class="request-header">
+            <div class="request-title">${escapeHtml(req.display || '')}</div>
+            <div class="request-time">${escapeHtml(req.timestamp || '')}</div>
+          </div>
+          <div class="request-details">
+            Requested by <strong>${escapeHtml(req.name || 'Anonymous')}</strong>
+            ${req.type === 'link' && req.youtube ? `<br><a href="${escapeHtml(req.youtube)}" target="_blank" rel="noopener noreferrer" class="request-link">${escapeHtml(req.youtube.substring(0, 50))}...</a>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateCount() {
+      if (!requestsRef) return;
+
+      requestsRef.once('value').then((snapshot) => {
+        updateCountFromSnapshot(snapshot);
+      }).catch((error) => {
+        console.error('Firebase count error:', error);
+      });
+    }
+
+    function updateCountFromSnapshot(snapshot) {
+      const count = snapshot.exists() ? snapshot.numChildren() : 0;
+      document.getElementById('count').textContent = count;
     }
 
     function generateQR() {
@@ -316,8 +349,8 @@
 
     function copyLink() {
       const url = document.getElementById('share-url').textContent;
+      const btn = document.querySelector('.copy-btn');
       navigator.clipboard.writeText(url).then(() => {
-        const btn = event.target;
         const oldText = btn.textContent;
         btn.textContent = '✓ Copied!';
         setTimeout(() => { btn.textContent = oldText; }, 2000);
@@ -325,12 +358,18 @@
     }
 
     function clearAllRequests() {
+      if (!firebaseReady || !requestsRef) {
+        alert('Database is not connected. Please refresh the page and try again.');
+        return;
+      }
+
       if (confirm('Clear all requests? This cannot be undone.')) {
         requestsRef.remove().then(() => {
           updateCount();
           renderRequests();
           alert('Requests cleared.');
         }).catch((error) => {
+          console.error('Firebase clear error:', error);
           alert('Error clearing requests: ' + error.message);
         });
       }
@@ -341,8 +380,6 @@
       div.textContent = text;
       return div.innerHTML;
     }
-
-    updateCount();
   </script>
 </body>
 </html>
