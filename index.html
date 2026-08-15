@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Chief Kivv Song Requests</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -50,6 +52,7 @@
     .clear-btn { color: #d32f2f; margin-right: 0; margin-top: 8px; }
     .clear-btn:hover { background: #fee; }
     .count-badge { background: #f0f0f0; color: #333; font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 4px; }
+    .status { font-size: 12px; color: #999; margin-top: 8px; }
     @media (max-width: 600px) {
       .header h1 { font-size: 20px; }
       .tab-btn { font-size: 12px; padding: 12px; }
@@ -101,6 +104,7 @@
           </div>
 
           <button type="submit" class="submit-btn">Submit request</button>
+          <div class="status" id="submit-status"></div>
         </form>
       </div>
 
@@ -131,8 +135,28 @@
 
   <script>
     let formType = 'link';
-    const urlParams = new URLSearchParams(window.location.search);
-    const boardId = urlParams.get('board') || 'default-board';
+    let db;
+    let requestsRef;
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBs6qtvPEOUjPdOTnKjymdI0lSvnMrGUZM",
+      authDomain: "song-request-a0ce5.firebaseapp.com",
+      projectId: "song-request-a0ce5",
+      databaseURL: "https://song-request-a0ce5-default-rtdb.firebaseio.com",
+      storageBucket: "song-request-a0ce5.firebasestorage.app",
+      messagingSenderId: "1097015766825",
+      appId: "1:1097015766825:web:954684dec179c9427c1138",
+      measurementId: "G-D244MH12RG"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    db = firebase.database();
+    requestsRef = db.ref('requests');
+
+    requestsRef.on('value', (snapshot) => {
+      updateCount();
+      renderRequests();
+    });
 
     function switchTab(tabName, btn) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -154,11 +178,15 @@
     function handleSubmit(e) {
       e.preventDefault();
       
-      // Validate based on form type
+      const statusEl = document.getElementById('submit-status');
+      statusEl.textContent = 'Submitting...';
+      statusEl.style.color = '#666';
+
       if (formType === 'link') {
         const youtube = document.getElementById('youtube').value.trim();
         if (!youtube) {
           alert('Please enter a YouTube link');
+          statusEl.textContent = '';
           return;
         }
       } else {
@@ -166,6 +194,7 @@
         const artist = document.getElementById('artist').value.trim();
         if (!title || !artist) {
           alert('Please enter both song title and artist');
+          statusEl.textContent = '';
           return;
         }
       }
@@ -186,41 +215,53 @@
         request.display = `${request.title} - ${request.artist}`;
       }
 
-      let requests = JSON.parse(localStorage.getItem(boardId) || '[]');
-      requests.unshift(request);
-      localStorage.setItem(boardId, JSON.stringify(requests));
-      
-      e.target.reset();
-      updateCount();
-      alert('Request submitted! 🎵');
+      requestsRef.child(request.id).set(request).then(() => {
+        e.target.reset();
+        statusEl.textContent = '✓ Submitted!';
+        statusEl.style.color = '#28a745';
+        setTimeout(() => {
+          statusEl.textContent = '';
+        }, 2000);
+      }).catch((error) => {
+        alert('Error submitting request: ' + error.message);
+        statusEl.textContent = '';
+      });
     }
 
     function renderRequests() {
-      const requests = JSON.parse(localStorage.getItem(boardId) || '[]');
       const container = document.getElementById('requests-list');
 
-      if (requests.length === 0) {
-        container.innerHTML = '<div class="empty-state">No requests yet.</div>';
-        return;
-      }
+      requestsRef.once('value', (snapshot) => {
+        if (!snapshot.exists()) {
+          container.innerHTML = '<div class="empty-state">No requests yet.</div>';
+          return;
+        }
 
-      container.innerHTML = requests.map(req => `
-        <div class="request-card">
-          <div class="request-header">
-            <div class="request-title">${escapeHtml(req.display)}</div>
-            <div class="request-time">${req.timestamp}</div>
+        const requests = [];
+        snapshot.forEach((childSnapshot) => {
+          requests.unshift(childSnapshot.val());
+        });
+
+        container.innerHTML = requests.map(req => `
+          <div class="request-card">
+            <div class="request-header">
+              <div class="request-title">${escapeHtml(req.display)}</div>
+              <div class="request-time">${req.timestamp}</div>
+            </div>
+            <div class="request-details">
+              Requested by <strong>${escapeHtml(req.name)}</strong>
+              ${req.type === 'link' ? `<br><a href="${req.youtube}" target="_blank" class="request-link">${req.youtube.substring(0, 50)}...</a>` : ''}
+            </div>
           </div>
-          <div class="request-details">
-            Requested by <strong>${escapeHtml(req.name)}</strong>
-            ${req.type === 'link' ? `<br><a href="${req.youtube}" target="_blank" class="request-link">${req.youtube.substring(0, 50)}...</a>` : ''}
-          </div>
-        </div>
-      `).join('');
+        `).join('');
+      });
     }
 
     function updateCount() {
-      const requests = JSON.parse(localStorage.getItem(boardId) || '[]');
-      document.getElementById('count').textContent = requests.length;
+      requestsRef.once('value', (snapshot) => {
+        const count = snapshot.exists() ? Object.keys(snapshot.val()).length : 0;
+        document.getElementById('count').textContent = count;
+      });
     }
 
     function generateQR() {
@@ -243,10 +284,13 @@
 
     function clearAllRequests() {
       if (confirm('Clear all requests? This cannot be undone.')) {
-        localStorage.removeItem(boardId);
-        updateCount();
-        renderRequests();
-        alert('Requests cleared.');
+        requestsRef.remove().then(() => {
+          updateCount();
+          renderRequests();
+          alert('Requests cleared.');
+        }).catch((error) => {
+          alert('Error clearing requests: ' + error.message);
+        });
       }
     }
 
