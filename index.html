@@ -153,9 +153,15 @@
     db = firebase.database();
     requestsRef = db.ref('requests');
 
+    console.log('Firebase initialized with project:', firebaseConfig.projectId);
+
     requestsRef.on('value', (snapshot) => {
+      console.log('Firebase update received:', snapshot.val());
       updateCount();
       renderRequests();
+    }, (error) => {
+      console.error('Firebase read error:', error);
+      alert('Error connecting to database: ' + error.message);
     });
 
     function switchTab(tabName, btn) {
@@ -215,7 +221,10 @@
         request.display = `${request.title} - ${request.artist}`;
       }
 
+      console.log('Submitting request:', request);
+
       requestsRef.child(request.id).set(request).then(() => {
+        console.log('Request submitted successfully');
         e.target.reset();
         statusEl.textContent = '✓ Submitted!';
         statusEl.style.color = '#28a745';
@@ -223,8 +232,10 @@
           statusEl.textContent = '';
         }, 2000);
       }).catch((error) => {
+        console.error('Firebase write error:', error);
         alert('Error submitting request: ' + error.message);
-        statusEl.textContent = '';
+        statusEl.textContent = 'Error: ' + error.message;
+        statusEl.style.color = '#d32f2f';
       });
     }
 
