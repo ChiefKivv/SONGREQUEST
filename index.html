@@ -153,12 +153,10 @@
 
     function handleSubmit(e) {
       e.preventDefault();
-      alert('DEBUG: Form submitted. Form type: ' + formType);
       
       // Validate based on form type
       if (formType === 'link') {
         const youtube = document.getElementById('youtube').value.trim();
-        alert('DEBUG: YouTube value: ' + youtube);
         if (!youtube) {
           alert('Please enter a YouTube link');
           return;
