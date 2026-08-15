@@ -137,6 +137,7 @@
     let formType = 'link';
     let db;
     let requestsRef;
+    let firebaseReady = false;
 
     const firebaseConfig = {
       apiKey: "AIzaSyBs6qtvPEOUjPdOTnKjymdI0lSvnMrGUZM",
@@ -149,20 +150,45 @@
       measurementId: "G-D244MH12RG"
     };
 
-    firebase.initializeApp(firebaseConfig);
-    db = firebase.database();
-    requestsRef = db.ref('requests');
+    // Wait for Firebase to load
+    function initFirebase() {
+      if (typeof firebase === 'undefined') {
+        console.log('Firebase not loaded yet, retrying...');
+        setTimeout(initFirebase, 100);
+        return;
+      }
 
-    console.log('Firebase initialized with project:', firebaseConfig.projectId);
+      try {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.database();
+        requestsRef = db.ref('requests');
+        firebaseReady = true;
 
-    requestsRef.on('value', (snapshot) => {
-      console.log('Firebase update received:', snapshot.val());
-      updateCount();
-      renderRequests();
-    }, (error) => {
-      console.error('Firebase read error:', error);
-      alert('Error connecting to database: ' + error.message);
-    });
+        console.log('Firebase initialized successfully');
+        console.log('Database URL:', firebaseConfig.databaseURL);
+
+        requestsRef.on('value', (snapshot) => {
+          console.log('Firebase update received:', snapshot.val());
+          updateCount();
+          renderRequests();
+        }, (error) => {
+          console.error('Firebase read error:', error);
+          alert('Error connecting to database: ' + error.message);
+        });
+
+        updateCount();
+      } catch (error) {
+        console.error('Firebase initialization error:', error);
+        alert('Firebase initialization failed: ' + error.message);
+      }
+    }
+
+    // Start initialization when page loads
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFirebase);
+    } else {
+      initFirebase();
+    }
 
     function switchTab(tabName, btn) {
       document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
@@ -184,6 +210,11 @@
     function handleSubmit(e) {
       e.preventDefault();
       
+      if (!firebaseReady || !requestsRef) {
+        alert('Database is still connecting. Please wait a moment and try again.');
+        return;
+      }
+
       const statusEl = document.getElementById('submit-status');
       statusEl.textContent = 'Submitting...';
       statusEl.style.color = '#666';
