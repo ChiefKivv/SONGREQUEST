@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Chief Kivv Song Requests</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      padding: 20px;
+    }
+    .container { max-width: 600px; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 2rem; }
+    .header h1 { font-size: 24px; margin-bottom: 4px; }
+    .header p { font-size: 14px; color: #666; }
+    .request-board { background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); overflow: hidden; }
+    .tabs { display: flex; border-bottom: 1px solid #e0e0e0; }
+    .tab-btn { flex: 1; padding: 14px; background: none; border: none; cursor: pointer; font-size: 14px; font-weight: 500; color: #666; border-bottom: 2px solid transparent; transition: all 0.2s; }
+    .tab-btn:hover { background: #fafafa; }
+    .tab-btn.active { color: #000; border-bottom-color: #000; }
+    .tab-content { display: none; padding: 20px; }
+    .tab-content.active { display: block; }
+    .form-group { margin-bottom: 16px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 6px; }
+    .form-group input, .form-group textarea { width: 100%; padding: 10px 12px; font-size: 14px; border: 1px solid #ddd; border-radius: 6px; font-family: inherit; }
+    .form-group input:focus, .form-group textarea:focus { outline: none; border-color: #000; }
+    .form-type-toggle { display: flex; gap: 8px; margin-bottom: 16px; }
+    .form-type-btn { flex: 1; padding: 10px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500; color: #666; transition: all 0.2s; }
+    .form-type-btn.active { background: #000; color: white; border-color: #000; }
+    .submit-btn { width: 100%; padding: 12px; background: #000; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: 500; }
+    .submit-btn:hover { background: #333; }
+    .requests-list { display: flex; flex-direction: column; gap: 12px; }
+    .request-card { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; }
+    .request-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .request-title { font-weight: 500; font-size: 14px; flex: 1; word-break: break-word; }
+    .request-time { font-size: 12px; color: #999; white-space: nowrap; margin-left: 8px; }
+    .request-details { font-size: 13px; color: #666; line-height: 1.5; }
+    .request-link { color: #0066cc; text-decoration: none; word-break: break-all; }
+    .empty-state { text-align: center; padding: 2rem 1rem; color: #999; }
+    .qr-container { text-align: center; padding: 1rem 0; }
+    .qr-container canvas { border: 1px solid #ddd; border-radius: 6px; padding: 12px; background: white; }
+    .share-section { background: #f9f9f9; border: 1px solid #e0e0e0; border-radius: 6px; padding: 12px; margin-top: 12px; }
+    .share-url { font-size: 12px; word-break: break-all; color: #666; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd; font-family: monospace; margin-bottom: 8px; }
+    .copy-btn, .clear-btn { padding: 8px 12px; background: white; border: 1px solid #ddd; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500; margin-right: 8px; }
+    .copy-btn:hover { background: #f5f5f5; }
+    .clear-btn { color: #d32f2f; margin-right: 0; margin-top: 8px; }
+    .clear-btn:hover { background: #fee; }
+    .count-badge { background: #f0f0f0; color: #333; font-size: 12px; padding: 2px 8px; border-radius: 12px; margin-left: 4px; }
+    @media (max-width: 600px) {
+      .header h1 { font-size: 20px; }
+      .tab-btn { font-size: 12px; padding: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🎵 Song Requests</h1>
+      <p>Submit your song request for Chief Kivv</p>
+    </div>
+
+    <div class="request-board">
+      <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('submit', this)">Submit request</button>
+        <button class="tab-btn" onclick="switchTab('view', this)">View requests <span class="count-badge" id="count">0</span></button>
+        <button class="tab-btn" onclick="switchTab('share', this)">Share</button>
+      </div>
+
+      <div id="submit" class="tab-content active">
+        <form onsubmit="handleSubmit(event)">
+          <div class="form-type-toggle">
+            <button type="button" class="form-type-btn active" onclick="setFormType('link', this)">YouTube link</button>
+            <button type="button" class="form-type-btn" onclick="setFormType('manual', this)">Title & artist</button>
+          </div>
+
+          <div id="link-form">
+            <div class="form-group">
+              <label for="youtube">YouTube link</label>
+              <input type="url" id="youtube" placeholder="https://youtube.com/watch?v=..." required>
+            </div>
+          </div>
+
+          <div id="manual-form" style="display: none;">
+            <div class="form-group">
+              <label for="song-title">Song title</label>
+              <input type="text" id="song-title" placeholder="e.g. Levitating" required>
+            </div>
+            <div class="form-group">
+              <label for="artist">Artist</label>
+              <input type="text" id="artist" placeholder="e.g. Dua Lipa" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="name">Your name (optional)</label>
+            <input type="text" id="name" placeholder="Who's requesting this?">
+          </div>
+
+          <button type="submit" class="submit-btn">Submit request</button>
+        </form>
+      </div>
+
+      <div id="view" class="tab-content">
+        <div style="margin-bottom: 1rem;">
+          <h3 style="font-size: 14px; margin-bottom: 12px;">Incoming requests</h3>
+          <div class="requests-list" id="requests-list">
+            <div class="empty-state">No requests yet. Share the link to get started.</div>
+          </div>
+        </div>
+      </div>
+
+      <div id="share" class="tab-content">
+        <div style="margin-bottom: 1.5rem;">
+          <h3 style="font-size: 14px; margin-bottom: 12px;">QR code</h3>
+          <div class="qr-container" id="qr-code"></div>
+        </div>
+
+        <div class="share-section">
+          <h3 style="font-size: 14px; margin-bottom: 12px;">Share link</h3>
+          <div class="share-url" id="share-url"></div>
+          <button class="copy-btn" onclick="copyLink()">📋 Copy link</button>
+          <button class="clear-btn" onclick="clearAllRequests()">🗑️ Clear requests</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let formType = 'link';
+    const urlParams = new URLSearchParams(window.location.search);
+    const boardId = urlParams.get('board') || 'default-board';
+
+    function switchTab(tabName, btn) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(tabName).classList.add('active');
+      btn.classList.add('active');
+      if (tabName === 'share') generateQR();
+      if (tabName === 'view') renderRequests();
+    }
+
+    function setFormType(type, btn) {
+      formType = type;
+      document.querySelectorAll('.form-type-btn').forEach(el => el.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('link-form').style.display = type === 'link' ? 'block' : 'none';
+      document.getElementById('manual-form').style.display = type === 'manual' ? 'block' : 'none';
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      const request = {
+        id: Date.now(),
+        timestamp: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+        name: document.getElementById('name').value || 'Anonymous',
+        type: formType
+      };
+
+      if (formType === 'link') {
+        request.youtube = document.getElementById('youtube').value;
+        request.display = request.youtube;
+      } else {
+        request.title = document.getElementById('song-title').value;
+        request.artist = document.getElementById('artist').value;
+        request.display = `${request.title} - ${request.artist}`;
+      }
+
+      let requests = JSON.parse(localStorage.getItem(boardId) || '[]');
+      requests.unshift(request);
+      localStorage.setItem(boardId, JSON.stringify(requests));
+      
+      e.target.reset();
+      updateCount();
+      alert('Request submitted! 🎵');
+    }
+
+    function renderRequests() {
+      const requests = JSON.parse(localStorage.getItem(boardId) || '[]');
+      const container = document.getElementById('requests-list');
+
+      if (requests.length === 0) {
+        container.innerHTML = '<div class="empty-state">No requests yet.</div>';
+        return;
+      }
+
+      container.innerHTML = requests.map(req => `
+        <div class="request-card">
+          <div class="request-header">
+            <div class="request-title">${escapeHtml(req.display)}</div>
+            <div class="request-time">${req.timestamp}</div>
+          </div>
+          <div class="request-details">
+            Requested by <strong>${escapeHtml(req.name)}</strong>
+            ${req.type === 'link' ? `<br><a href="${req.youtube}" target="_blank" class="request-link">${req.youtube.substring(0, 50)}...</a>` : ''}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function updateCount() {
+      const requests = JSON.parse(localStorage.getItem(boardId) || '[]');
+      document.getElementById('count').textContent = requests.length;
+    }
+
+    function generateQR() {
+      const container = document.getElementById('qr-code');
+      container.innerHTML = '';
+      const url = window.location.href;
+      new QRCode(container, { text: url, width: 200, height: 200 });
+      document.getElementById('share-url').textContent = url;
+    }
+
+    function copyLink() {
+      const url = document.getElementById('share-url').textContent;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = event.target;
+        const oldText = btn.textContent;
+        btn.textContent = '✓ Copied!';
+        setTimeout(() => { btn.textContent = oldText; }, 2000);
+      });
+    }
+
+    function clearAllRequests() {
+      if (confirm('Clear all requests? This cannot be undone.')) {
+        localStorage.removeItem(boardId);
+        updateCount();
+        renderRequests();
+        alert('Requests cleared.');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    updateCount();
+  </script>
+</body>
+</html>
